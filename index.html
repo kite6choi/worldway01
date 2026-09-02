@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>월드웨이 동결건조기 스마트 예지보전 AI 대시보드</title>
+  
+  <!-- PWA Manifest & Meta -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="월드웨이 AI">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="icons/icon-512.png">
+
+  <!-- Tailwind CSS & DaisyUI CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.css" rel="stylesheet" />
+
+  <!-- Core Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+
+  <!-- uPlot 60fps Canvas Chart CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/uplot@1.6.24/dist/uPlot.iife.min.js"></script>
+
+  <!-- Custom Design System -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="p-3 md:p-6 text-slate-100 min-h-screen">
+
+  <div class="max-w-[1600px] mx-auto space-y-6">
+
+    <!-- Header Bar -->
+    <header class="glass-panel rounded-2xl p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
+          <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl md:text-2xl font-black tracking-tight text-white">월드웨이 동결건조기 스마트 예지보전 AI</h1>
+            <span class="badge badge-info badge-outline font-semibold">Chamber 1</span>
+            <span class="badge badge-primary font-bold">PWA</span>
+          </div>
+          <p class="text-xs md:text-sm text-slate-400">1단계 오토인코더 이상탐지 ➡ 10차원 융합 ➡ 2단계 다중 분류 고장 진단</p>
+        </div>
+      </div>
+
+      <div class="flex items-center flex-wrap gap-3">
+        <!-- TDD 자가 진단 버튼 -->
+        <button id="run-tdd-btn" class="btn btn-sm btn-outline btn-info gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          TDD 자가 검증 실행
+        </button>
+
+        <!-- 골드 인증 배지 -->
+        <div id="gold-quality-badge" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-slate-400 font-bold border border-slate-700 text-xs md:text-sm">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+          </svg>
+          <span>품질 규격 검증 대기 (목표 F1: 0.80)</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Top Grid: Section A (데이터 셋업) & Section B (AI 모델링 콘솔) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- [영역 A: col-span-5] 데이터 셋업 센터 -->
+      <section class="lg:col-span-5 glass-panel rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+            <div class="flex items-center gap-2 font-bold text-cyan-400">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m-6-8h6"></path>
+              </svg>
+              <span>[영역 A] 데이터 셋업 센터</span>
+            </div>
+            <span class="text-xs text-slate-400">IndexedDB 로컬 스토리지</span>
+          </div>
+
+          <!-- 드롭존 및 원클릭 로드 -->
+          <div class="mt-4 space-y-3">
+            <div id="dataset-dropzone" class="dropzone rounded-xl p-4 text-center cursor-pointer hover:bg-slate-800/40">
+              <svg class="w-8 h-8 mx-auto text-slate-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+              </svg>
+              <p class="text-xs font-semibold text-slate-300">정상(12만건) & 고장(3만건) CSV 파일 드래그 & 드롭</p>
+              <p class="text-[11px] text-slate-500 mt-0.5">또는 아래 개별 파일 선택</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">정상 CSV (12만건)</label>
+                <input type="file" id="normal-csv-file" accept=".csv" class="file-input file-input-bordered file-input-xs w-full bg-slate-900 text-slate-200" />
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">고장 CSV (3만건)</label>
+                <input type="file" id="fault-csv-file" accept=".csv" class="file-input file-input-bordered file-input-xs w-full bg-slate-900 text-slate-200" />
+              </div>
+            </div>
+
+            <div class="flex gap-2 pt-1">
+              <button id="load-default-dataset-btn" class="btn btn-sm btn-primary flex-1 gap-2 font-bold shadow-md">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                </svg>
+                기본 실측 데이터셋 (15만건) 즉시 적재
+              </button>
+              <button id="reset-db-btn" class="btn btn-sm btn-ghost text-slate-400" title="DB 초기화">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 층화 분할 통계 매트릭스 카드 -->
+        <div class="bg-slate-900/80 rounded-xl p-3 border border-slate-800 space-y-2 mt-3">
+          <div class="text-xs font-bold text-slate-300 flex justify-between">
+            <span>3분할 층화 적재 현황 (Stratified 8:2:5)</span>
+            <span class="text-emerald-400" id="stat-total-rows">0 건</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center text-xs">
+            <div class="bg-slate-800/80 p-2 rounded-lg">
+              <div class="text-[10px] text-slate-400">Train (학습)</div>
+              <div class="font-bold text-cyan-400 mono-font" id="stat-train-rows">0 건</div>
+            </div>
+            <div class="bg-slate-800/80 p-2 rounded-lg">
+              <div class="text-[10px] text-slate-400">Val (검증)</div>
+              <div class="font-bold text-amber-400 mono-font" id="stat-val-rows">0 건</div>
+            </div>
+            <div class="bg-slate-800/80 p-2 rounded-lg">
+              <div class="text-[10px] text-slate-400">Test (시험)</div>
+              <div class="font-bold text-emerald-400 mono-font" id="stat-test-rows">0 건</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- [영역 B: col-span-7] AI 훈련 프로세스 컨트롤 부 -->
+      <section class="lg:col-span-7 glass-panel rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+            <div class="flex items-center gap-2 font-bold text-blue-400">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+              </svg>
+              <span>[영역 B] 하이브리드 AI 훈련 프로세스 콘솔</span>
+            </div>
+            <span class="text-xs text-slate-400">WebGL 가속 활성</span>
+          </div>
+
+          <!-- 2단계 파이프라인 제어 카드 -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+            <!-- 1단계 오토인코더 카드 -->
+            <div class="bg-slate-900/80 rounded-xl p-3 border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-cyan-300">[1단계] Autoencoder 학습</span>
+                <span class="text-[10px] badge badge-outline badge-info">비지도 이상탐지</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-relaxed">
+                정상 가동 데이터 64,000건 학습 및 검증 1.6만건 조기종료 감시. 상위 99% 백분위 임계치 산출.
+              </p>
+              <div id="ae-train-log" class="hidden text-[10px] mono-font bg-slate-950 p-2 rounded border border-slate-800 text-slate-300">
+                <span id="ae-epoch-log">대기 중...</span>
+              </div>
+              <div class="flex items-center justify-between text-xs pt-1">
+                <span class="text-slate-400 text-[11px]">이상 임계치(T_h):</span>
+                <span id="threshold-value-display" class="font-bold text-amber-400 mono-font">0.04500</span>
+              </div>
+              <button id="train-ae-btn" disabled class="btn btn-sm btn-primary w-full font-bold">
+                ▶ 오토인코더 학습 시작
+              </button>
+            </div>
+
+            <!-- 2단계 다중 분류기 카드 -->
+            <div class="bg-slate-900/80 rounded-xl p-3 border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-purple-300">[2단계] 10D 융합 분류기</span>
+                <span class="text-[10px] badge badge-outline badge-secondary">지도 고장진단</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-relaxed">
+                원시 센서 5종 + AE 복원오차 5종 병합 10차원 특징 행렬(8만건) 4대 클래스 다중 분류.
+              </p>
+              <div id="cls-train-log" class="hidden text-[10px] mono-font bg-slate-950 p-2 rounded border border-slate-800 text-slate-300">
+                <span id="cls-epoch-log">대기 중...</span>
+              </div>
+              <div class="flex items-center justify-between text-xs pt-1">
+                <span class="text-slate-400 text-[11px]">진단 클래스:</span>
+                <span class="font-semibold text-purple-300">정상 / 건식 / 부스1 / 부스2</span>
+              </div>
+              <button id="train-cls-btn" disabled class="btn btn-sm btn-secondary w-full font-bold">
+                ▶ 10D 다중 분류기 학습
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-[11px] text-slate-500 text-right pt-2">
+          * 1단계 학습 완료 시 산출된 임계치(T_h)가 프로그램에 자동 락(Lock) 설정됩니다.
+        </div>
+      </section>
+    </div>
+
+    <!-- Middle Grid: Section C (실시간 시뮬레이션 콘솔 & 3색 알람 시스템) -->
+    <section class="glass-panel rounded-2xl p-5 md:p-6 space-y-5">
+      <!-- Section C Header & Controls -->
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></div>
+          <div>
+            <h2 class="text-lg font-black text-emerald-400">[영역 C] 실시간 예지보전 시뮬레이션 콘솔</h2>
+            <p class="text-xs text-slate-400">격리된 최종 시험 데이터(50,000건) 실시간 1초 주기 스트림 & 10% 돌발 고장 인젝션</p>
+          </div>
+        </div>
+
+        <!-- Simulator Control Bar -->
+        <div class="flex items-center flex-wrap gap-3">
+          <!-- Fault Injection Switch -->
+          <div class="form-control flex-row items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
+            <label class="label cursor-pointer p-0 gap-2">
+              <span class="label-text text-xs font-bold text-rose-400">돌발 고장 주입 (10%)</span>
+              <input type="checkbox" id="fault-injection-toggle" checked class="toggle toggle-error toggle-sm" />
+            </label>
+          </div>
+
+          <!-- Speed Controls -->
+          <div class="btn-group bg-slate-900/80 p-1 rounded-xl border border-slate-800 flex gap-1">
+            <button class="btn btn-xs speed-btn btn-active btn-primary" data-speed="1">1x</button>
+            <button class="btn btn-xs speed-btn" data-speed="5">5x</button>
+            <button class="btn btn-xs speed-btn" data-speed="10">10x</button>
+          </div>
+
+          <!-- Playback Actions -->
+          <div class="flex items-center gap-2">
+            <button id="sim-start-btn" disabled class="btn btn-sm btn-success gap-1 font-bold shadow-md">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
+              </svg>
+              가동 시작
+            </button>
+            <button id="sim-pause-btn" disabled class="btn btn-sm btn-warning gap-1 font-bold">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+              </svg>
+              일시정지
+            </button>
+            <button id="sim-reset-btn" class="btn btn-sm btn-outline btn-ghost text-slate-400">
+              초기화
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Charts Grid: Sensor Trend & Error Monitor -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Live Chart 1: Sensor Trend -->
+        <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800/80 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-cyan-400">4.1 센서 트렌드 실시간 시계열 그래프 (uPlot 60fps)</span>
+            <span class="text-[10px] text-slate-400">5대 센서 멀티라인</span>
+          </div>
+          <div id="sensor-chart-box" class="w-full h-[220px] overflow-hidden flex items-center justify-center bg-slate-950/60 rounded-xl"></div>
+        </div>
+
+        <!-- Live Chart 2: Autoencoder Error & Threshold -->
+        <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800/80 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-rose-400">4.2 실시간 AE 복원 MSE 오차 모니터링 (uPlot)</span>
+            <span class="text-[10px] text-amber-400">임계치 침범 시 즉시 2단계 기동</span>
+          </div>
+          <div id="error-chart-box" class="w-full h-[220px] overflow-hidden flex items-center justify-center bg-slate-950/60 rounded-xl"></div>
+        </div>
+      </div>
+
+      <!-- Lower Section C: Realtime Probabilities & 3-Color Smart Alarm Siren -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <!-- 4.3 Realtime Probabilities Bar (col-span-6) -->
+        <div class="lg:col-span-6 bg-slate-900/80 rounded-2xl p-4 border border-slate-800 space-y-3 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">4.3 실시간 고장 원인별 진단 예측 확률 분포 (%)</span>
+            <span class="text-[10px] text-slate-500">Softmax & 앙상블 4-Class</span>
+          </div>
+
+          <div class="space-y-2.5">
+            <!-- Normal -->
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-emerald-400 font-semibold">정상 가동 (Normal)</span>
+                <span id="prob-val-0" class="mono-font text-emerald-400 font-bold">100%</span>
+              </div>
+              <progress id="prob-bar-0" class="progress progress-success w-full h-2.5 bg-slate-800" value="100" max="100"></progress>
+            </div>
+
+            <!-- Dry Pump -->
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-cyan-400 font-semibold">드라이펌프 고장 (Dry Pump Fail)</span>
+                <span id="prob-val-1" class="mono-font text-cyan-400 font-bold">0%</span>
+              </div>
+              <progress id="prob-bar-1" class="progress progress-info w-full h-2.5 bg-slate-800" value="0" max="100"></progress>
+            </div>
+
+            <!-- Booster 1 -->
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-blue-400 font-semibold">부스터1 펌프 고장 (Booster 1 Fail)</span>
+                <span id="prob-val-2" class="mono-font text-blue-400 font-bold">0%</span>
+              </div>
+              <progress id="prob-bar-2" class="progress progress-primary w-full h-2.5 bg-slate-800" value="0" max="100"></progress>
+            </div>
+
+            <!-- Booster 2 -->
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-purple-400 font-semibold">부스터2 펌프 고장 (Booster 2 Fail)</span>
+                <span id="prob-val-3" class="mono-font text-purple-400 font-bold">0%</span>
+              </div>
+              <progress id="prob-bar-3" class="progress progress-secondary w-full h-2.5 bg-slate-800" value="0" max="100"></progress>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4.4 동적 3색 스마트 사이렌 & 가이드 카드 (col-span-6) -->
+        <div class="lg:col-span-6 flex">
+          <div id="alarm-siren-card" class="glass-panel alarm-green rounded-2xl p-5 shadow-xl w-full flex flex-col justify-between transition-all duration-300">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-bold tracking-wider">4.4 동적 3색 스마트 사이렌 & 현장 정비 가이드</span>
+                <span id="alarm-status-badge" class="badge badge-success text-slate-950 font-black">NORMAL</span>
+              </div>
+              <h3 id="alarm-title" class="text-lg font-black mb-2">✅ 정상 안정 운전</h3>
+              <p id="alarm-guide-text" class="text-xs md:text-sm leading-relaxed opacity-95">
+                건조 챔버 내 기계 계통이 안정적이며 최적 진공 배치가 정상 순항 중입니다.
+              </p>
+            </div>
+            <div class="text-[11px] text-slate-400/80 pt-3 border-t border-slate-700/40 mt-3">
+              * 녹색: 복원오차 $\le T_h$ | 황색: 복원오차 $> T_h$ (일시주의) | 적색: 고장확률 70% 초과 확정 시 사이렌 발령
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom Grid: Section D (TDD 통합 정량 실증 평가 패널) -->
+    <section class="glass-panel rounded-2xl p-5 md:p-6 space-y-5">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-3 border-b border-slate-700/60 pb-4">
+        <div>
+          <h2 class="text-lg font-black text-amber-400">[영역 D] TDD 통합 정량 실증 평가 패널</h2>
+          <p class="text-xs text-slate-400">격리된 최종 시험 데이터(50,000건) 실시간 혼동 행렬 및 F1-Score 공인 검증</p>
+        </div>
+        <div class="text-xs text-slate-400 font-mono">
+          누적 평가 건수: <span id="evaluated-count-display" class="font-bold text-cyan-400">0 / 50,000</span>
+        </div>
+      </div>
+
+      <!-- Metrics KPI Summary Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-slate-900/80 rounded-xl p-4 border border-slate-800 text-center space-y-1">
+          <div class="text-xs font-semibold text-slate-400">종합 매크로 F1-Score</div>
+          <div id="macro-f1-display" class="text-3xl font-black text-amber-400 mono-font">0.0000</div>
+          <div class="text-[11px] text-slate-500">목표 기준선: 0.8000 이상</div>
+        </div>
+
+        <div class="bg-slate-900/80 rounded-xl p-4 border border-slate-800 text-center space-y-1">
+          <div class="text-xs font-semibold text-slate-400">매크로 정밀도 (Precision)</div>
+          <div id="macro-precision-display" class="text-3xl font-black text-cyan-400 mono-font">0.00%</div>
+          <div class="text-[11px] text-slate-500">오탐(False Positive) 통제력</div>
+        </div>
+
+        <div class="bg-slate-900/80 rounded-xl p-4 border border-slate-800 text-center space-y-1">
+          <div class="text-xs font-semibold text-slate-400">매크로 재현율 (Recall)</div>
+          <div id="macro-recall-display" class="text-3xl font-black text-emerald-400 mono-font">0.00%</div>
+          <div class="text-[11px] text-slate-500">미탐(False Negative) 감지력</div>
+        </div>
+      </div>
+
+      <!-- 4x4 Confusion Matrix Table -->
+      <div class="overflow-x-auto bg-slate-900/80 rounded-xl border border-slate-800 p-3">
+        <div class="text-xs font-bold text-slate-300 mb-2">실시간 4x4 Confusion Matrix (실제 정답 행 \ 예측 클래스 열)</div>
+        <table class="table table-xs md:table-sm w-full cm-table mono-font text-slate-200">
+          <thead>
+            <tr class="bg-slate-800/80 text-slate-300">
+              <th>실제 \ 예측</th>
+              <th class="text-emerald-400">정상 (Class 0)</th>
+              <th class="text-cyan-400">드라이펌프 (Class 1)</th>
+              <th class="text-blue-400">부스터1 (Class 2)</th>
+              <th class="text-purple-400">부스터2 (Class 3)</th>
+              <th>합계</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="font-bold text-emerald-400">정상 (0)</td>
+              <td id="cm-0-0" class="cm-diag">0</td>
+              <td id="cm-0-1" class="cm-error">0</td>
+              <td id="cm-0-2" class="cm-error">0</td>
+              <td id="cm-0-3" class="cm-error">0</td>
+              <td id="cm-total-0" class="font-bold">0</td>
+            </tr>
+            <tr>
+              <td class="font-bold text-cyan-400">드라이펌프 (1)</td>
+              <td id="cm-1-0" class="cm-error">0</td>
+              <td id="cm-1-1" class="cm-diag">0</td>
+              <td id="cm-1-2" class="cm-error">0</td>
+              <td id="cm-1-3" class="cm-error">0</td>
+              <td id="cm-total-1" class="font-bold">0</td>
+            </tr>
+            <tr>
+              <td class="font-bold text-blue-400">부스터1 (2)</td>
+              <td id="cm-2-0" class="cm-error">0</td>
+              <td id="cm-2-1" class="cm-error">0</td>
+              <td id="cm-2-2" class="cm-diag">0</td>
+              <td id="cm-2-3" class="cm-error">0</td>
+              <td id="cm-total-2" class="font-bold">0</td>
+            </tr>
+            <tr>
+              <td class="font-bold text-purple-400">부스터2 (3)</td>
+              <td id="cm-3-0" class="cm-error">0</td>
+              <td id="cm-3-1" class="cm-error">0</td>
+              <td id="cm-3-2" class="cm-error">0</td>
+              <td id="cm-3-3" class="cm-diag">0</td>
+              <td id="cm-total-3" class="font-bold">0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-center text-xs text-slate-500 py-4">
+      월드웨이(Worldway) × 엔씨씨(NCC) 제조데이터 상품가공 지원사업 | 진공 동결건조기 예지보전 하이브리드 AI 웹 PWA
+    </footer>
+  </div>
+
+  <!-- Loading Progress Modal -->
+  <dialog id="progress-modal" class="modal">
+    <div class="modal-box bg-slate-900 border border-slate-800 text-slate-100 max-w-md">
+      <h3 class="font-bold text-base flex items-center gap-2 text-cyan-400">
+        <span class="loading loading-spinner loading-sm"></span>
+        대용량 제조 데이터셋 가공 및 적재
+      </h3>
+      <p id="progress-text" class="text-xs text-slate-300 mt-3">데이터 로딩 중...</p>
+      <progress id="progress-bar" class="progress progress-info w-full mt-2" value="0" max="100"></progress>
+    </div>
+  </dialog>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast toast-bottom toast-end z-50"></div>
+
+  <!-- Scripts -->
+  <script src="tdd_analyzer_test.js"></script>
+  <script src="data-store.js"></script>
+  <script src="ai-engine.js"></script>
+  <script src="charts-manager.js"></script>
+  <script src="metrics-calculator.js"></script>
+  <script src="app.js"></script>
+  <!-- PWA Service Worker 등록 -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => {
+            console.log('[PWA] Service Worker 등록 완료:', reg.scope);
+            // 새 버전 감지 시 자동 업데이트
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('[PWA] 새 버전이 준비되었습니다. 새로고침하면 적용됩니다.');
+                }
+              });
+            });
+          })
+          .catch((err) => console.warn('[PWA] Service Worker 등록 실패:', err));
+      });
+    }
+  </script>
+</body>
+</html>

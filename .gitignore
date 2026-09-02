@@ -1,0 +1,17 @@
+# 대용량 CSV 데이터 파일 (배포 제외 - IndexedDB에서 런타임 적재)
+*.csv
+
+# 개발/빌드 산출물
+node_modules/
+.env
+.env.local
+
+# OS 파일
+.DS_Store
+Thumbs.db
+
+# 개발 문서 (선택적 제외)
+# spec.md
+# plan.md
+# tasks.md
+# implementation_plan.md

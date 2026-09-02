@@ -1,0 +1,18 @@
+{
+  "name": "worldway-freeze-dryer-predictive-maintenance",
+  "version": "1.0.0",
+  "description": "진공 동결건조기 2단계 하이브리드 예지보전 AI PWA",
+  "scripts": {
+    "dev": "npx serve -l 3000 .",
+    "test": "node tdd_analyzer_test.js"
+  },
+  "keywords": [
+    "predictive-maintenance",
+    "pwa",
+    "tensorflowjs",
+    "autoencoder",
+    "xgboost"
+  ],
+  "author": "Worldway & NCC",
+  "license": "MIT"
+}
