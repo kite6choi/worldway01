@@ -206,24 +206,31 @@ class AIEngine {
    * 2단계 다중 분류 신경망 모델 구축 (10D -> 4 Class Softmax)
    * BatchNorm 및 고용량 Dense 레이어 적용으로 고장 식별력 극대화
    */
-  buildClassifierModel(initialLearningRate = 0.008) {
+  buildClassifierModel(initialLearningRate = 0.003) {
     const model = tf.sequential();
+
+    model.add(tf.layers.dense({
+      units: 64,
+      activation: 'relu',
+      kernelInitializer: 'heNormal',
+      inputShape: [10],
+      name: 'cls_dense1'
+    }));
+
+    model.add(tf.layers.dropout({ rate: 0.15 }));
 
     model.add(tf.layers.dense({
       units: 32,
       activation: 'relu',
       kernelInitializer: 'heNormal',
-      inputShape: [10],
-      name: 'cls_hidden1'
+      name: 'cls_dense2'
     }));
-
-    model.add(tf.layers.batchNormalization());
 
     model.add(tf.layers.dense({
       units: 16,
       activation: 'relu',
       kernelInitializer: 'heNormal',
-      name: 'cls_hidden2'
+      name: 'cls_dense3'
     }));
 
     model.add(tf.layers.dense({
@@ -580,14 +587,17 @@ class AIEngine {
     const yValFlat   = new Float32Array(nVal   * 4);
     for (let i = 0; i < nVal;   i++) yValFlat[i   * 4 + valRows[i].label_class]   = 1;
 
-    // ── [4단계] Class Weights 계산 ────────────────────────────────────────────
+    // ── [4단계] Class Weights 계산 (Square Root Smoothing 적용) ──────────────
+    // 정상:고장의 극단적인 가중치 차이(12배)로 인한 정상 데이터 오분류 및 Val Loss 왜곡 방지
     const classCounts = [0, 0, 0, 0];
     trainRows.forEach(r => classCounts[r.label_class]++);
     const classWeights = {};
     for (let c = 0; c < 4; c++) {
-      classWeights[c] = nTrain / (4 * Math.max(1, classCounts[c]));
+      const ratio = (nTrain / 4) / Math.max(1, classCounts[c]);
+      // 제곱근 스케일링으로 0.8 ~ 2.2 범위로 완만하게 제어 (정상/고장 동시 최적화)
+      classWeights[c] = Math.min(2.5, Math.max(0.8, Math.pow(ratio, 0.5)));
     }
-    console.log('[Classifier] Class Weights:', classWeights);
+    console.log('[Classifier] Smoothed Class Weights:', classWeights);
 
     // ── [5단계] 텐서 생성 — tf.tensor(TypedArray, shape) (스택 안전) ─────────
     // ⚠️ tf.tensor2d(nestedArray) 대신 tf.tensor(Float32Array, shape) 사용
@@ -603,14 +613,16 @@ class AIEngine {
     // ── [6단계] 에포크 학습 루프 ──────────────────────────────────────────────
     const epochs    = 40;
     const batchSize = 512;
-    const patience  = 6;
+    const patience  = 12;      // 넉넉한 탐색 기회 부여
+    const minEpochs = 15;      // 최소 15에포크까지는 조기 종료 방지 (웜업 보장)
     let bestValLoss  = Infinity;
+    let bestValAcc   = 0;
     let patienceCount = 0;
     let lrPlateauCount = 0;
 
     console.log(
       `[Classifier] 학습 시작 — Epochs: ${epochs}, BatchSize: ${batchSize}, ` +
-      `LR: ${currentLr}, patience: ${patience}`
+      `LR: ${currentLr}, patience: ${patience}, minEpochs: ${minEpochs}`
     );
 
     let lastValAcc = 0;
@@ -649,16 +661,25 @@ class AIEngine {
 
       await tf.nextFrame();
 
-      // ── EarlyStopping & ReduceLROnPlateau ─────────────────────────────────
+      // ── EarlyStopping (최소 에포크 보장 및 Val Loss / Val Acc 동시 모니터링) ──
+      let improved = false;
       if (valLoss < bestValLoss) {
-        bestValLoss    = valLoss;
+        bestValLoss = valLoss;
+        improved = true;
+      }
+      if (valAcc > bestValAcc) {
+        bestValAcc = valAcc;
+        improved = true;
+      }
+
+      if (improved) {
         patienceCount  = 0;
         lrPlateauCount = 0;
       } else {
         patienceCount++;
         lrPlateauCount++;
 
-        if (lrPlateauCount >= 2 && currentLr > 0.0003) {
+        if (lrPlateauCount >= 3 && currentLr > 0.0003) {
           currentLr *= 0.5;
           if (typeof this.classifier.optimizer.setLearningRate === 'function') {
             this.classifier.optimizer.setLearningRate(currentLr);
@@ -669,9 +690,10 @@ class AIEngine {
           console.log(`[Classifier] ReduceLROnPlateau → LR: ${currentLr.toFixed(6)}`);
         }
 
-        if (patienceCount >= patience) {
+        // 최소 minEpochs를 지난 후에만 조기 종료 판정
+        if (epoch >= minEpochs && patienceCount >= patience) {
           isEarlyStopped = true;
-          console.log(`[Classifier] Early Stopping at Epoch ${epoch} — Best Val Loss: ${bestValLoss.toFixed(4)}`);
+          console.log(`[Classifier] Early Stopping at Epoch ${epoch} — Best Val Loss: ${bestValLoss.toFixed(4)}, Best Val Acc: ${(bestValAcc * 100).toFixed(2)}%`);
           if (callbacks.onEarlyStop) callbacks.onEarlyStop(epoch, bestValLoss);
           break;
         }
