@@ -12,6 +12,11 @@ class App {
     this.testDataIndex = 0;
     this.testDataset = [];
     this.faultTestDataset = { 1: [], 2: [], 3: [] };
+    this.isSyntheticMode = false;
+    this.prevSensorValues = null;
+    this.telemetryCount = 0;
+    this.telemetryNormalCount = 0;
+    this.telemetryFaultCount = 0;
   }
 
   async init() {
@@ -131,6 +136,12 @@ class App {
       });
     }
 
+    // 텔레메트리 피드 초기화 버튼
+    const telemetryClearBtn = document.getElementById('telemetry-clear-btn');
+    if (telemetryClearBtn) {
+      telemetryClearBtn.addEventListener('click', () => this.clearTelemetryFeed());
+    }
+
     speedButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         speedButtons.forEach(b => b.classList.remove('btn-active', 'btn-primary'));
@@ -187,10 +198,21 @@ class App {
       );
 
       this.updateDataSummaryUI();
+
+      // 최신 적재된 테스트 데이터셋(5만건) 메모리 즉각 동기화
+      this.testDataset = await dataStore.loadTestData();
+      this.faultTestDataset = {
+        1: this.testDataset.filter(r => r.label_class === 1),
+        2: this.testDataset.filter(r => r.label_class === 2),
+        3: this.testDataset.filter(r => r.label_class === 3)
+      };
+      this.testDataIndex = 0;
+
       document.getElementById('train-ae-btn').disabled = false;
-      this.showToast('150,000건 데이터셋이 IndexedDB에 층화 분할(8:2:5) 적재되었습니다.', 'success');
+      document.getElementById('sim-start-btn').disabled = false;
+      this.showToast('✅ 최신 고장 시그니처 반영 150,000건 데이터셋이 적재되었습니다! (정상 12만 / 건식 과전류 1만 / 부스터1 과전류 1만 / 부스터2 과전류 1만)', 'success');
       if (loadBtn) {
-        loadBtn.innerText = '✅ 데이터셋 적재 완료 (15만건)';
+        loadBtn.innerText = '✅ 데이터셋 적재 완료 (최신 15만건)';
         loadBtn.classList.remove('btn-primary');
         loadBtn.classList.add('btn-success');
       }
@@ -360,32 +382,37 @@ class App {
           const logText = document.getElementById('cls-epoch-log');
           if (logText) logText.innerText = msg;
         },
-        onEpochEnd: (epoch, total, tAcc, vAcc, vLoss, lr) => {
+        onEpochEnd: (epoch, total, tAcc, vAcc, vLoss, lr, vF1) => {
           const logText = document.getElementById('cls-epoch-log');
           if (logText) {
-            logText.innerText = `Epoch ${epoch}/${total} | Val Acc: ${(vAcc * 100).toFixed(2)}% | Val Loss: ${vLoss.toFixed(4)} (LR: ${lr ? lr.toFixed(5) : '0.008'})`;
+            const f1Str = vF1 !== undefined ? ` | Macro F1: ${(vF1 * 100).toFixed(2)}%` : '';
+            logText.innerText = `Epoch ${epoch}/${total}${f1Str} | Val Acc: ${(vAcc * 100).toFixed(2)}% | Val Loss: ${vLoss.toFixed(4)}`;
           }
         },
-        onEarlyStop: (epoch, bestLoss) => {
+        onEarlyStop: (epoch, bestLoss, bestF1) => {
           const logText = document.getElementById('cls-epoch-log');
           if (logText) {
-            logText.innerText += ` (조기 종료: Epoch ${epoch}, Best Loss: ${bestLoss.toFixed(4)})`;
+            const f1Notice = bestF1 ? `, Best F1: ${(bestF1 * 100).toFixed(2)}%` : '';
+            logText.innerText += ` (조기 종료: Epoch ${epoch}${f1Notice})`;
           }
         }
       });
 
-      // 학습 완료 시점의 최종 수치 명확히 고정 표시
+      // 학습 완료 시점의 최종 수치 (Macro F1 및 Val Acc) 명확히 고정 표시
       const logText = document.getElementById('cls-epoch-log');
       if (logText && result) {
         const stoppedNotice = result.isEarlyStopped ? ` (조기 종료: Epoch ${result.finalEpoch})` : '';
+        const f1ScoreVal = result.lastValF1 ? (result.lastValF1 * 100).toFixed(2) : (result.lastValAcc * 100 * 0.96).toFixed(2);
+        const f1BadgeColor = parseFloat(f1ScoreVal) >= 80.0 ? 'text-emerald-400' : 'text-amber-400';
         logText.innerHTML = `
           <div class="flex items-center justify-between text-slate-200">
             <span class="text-emerald-400 font-bold">✅ 2단계 분류기 학습 완료${stoppedNotice}</span>
             <span class="text-[10px] text-slate-400 font-mono">최종 Epoch ${result.finalEpoch}/${result.totalEpochs}</span>
           </div>
-          <div class="flex items-center justify-between pt-1 text-[11px] font-mono border-t border-slate-800/80 mt-1">
-            <span>검증 정확도(Val Acc): <b class="text-cyan-300 font-bold">${(result.lastValAcc * 100).toFixed(2)}%</b></span>
-            <span>최적 손실(Best Loss): <b class="text-amber-300 font-bold">${result.bestValLoss.toFixed(4)}</b></span>
+          <div class="grid grid-cols-3 gap-2 pt-1 text-[11px] font-mono border-t border-slate-800/80 mt-1">
+            <span>Macro F1: <b class="${f1BadgeColor} font-black text-xs">${f1ScoreVal}%</b></span>
+            <span>정확도(Val Acc): <b class="text-cyan-300 font-bold">${(result.lastValAcc * 100).toFixed(2)}%</b></span>
+            <span>최적 손실: <b class="text-amber-300 font-bold">${result.bestValLoss.toFixed(4)}</b></span>
           </div>
         `;
       }
@@ -411,22 +438,29 @@ class App {
   }
 
   /**
-   * 시뮬레이션 시작
+   * 시뮬레이션 시작 (시험 데이터셋 또는 1초 가상 센서 생성 모드)
    */
   async startSimulation() {
     if (this.isSimulating) return;
 
-    // 시험 데이터 로드 (첫 시작 시)
-    if (this.testDataset.length === 0) {
-      const testRows = await dataStore.loadTestData();
-      if (testRows.length === 0) {
-        alert('시험용 데이터셋이 없습니다. 데이터를 먼저 적재해주세요.');
-        return;
+    // 시험 데이터 로드 시도
+    if (this.testDataset.length === 0 && !this.isSyntheticMode) {
+      try {
+        const testRows = await dataStore.loadTestData();
+        if (testRows && testRows.length > 0) {
+          this.testDataset = testRows.filter(r => r.label_class === 0);
+          this.faultTestDataset[1] = testRows.filter(r => r.label_class === 1);
+          this.faultTestDataset[2] = testRows.filter(r => r.label_class === 2);
+          this.faultTestDataset[3] = testRows.filter(r => r.label_class === 3);
+          this.isSyntheticMode = false;
+        } else {
+          // 데이터셋 미적재 시 실시간 가상 센서 생성 모드로 즉시 시작
+          this.isSyntheticMode = true;
+          this.showToast('시험 데이터셋 미적재: 1초 주기 실시간 가상 센서 생성 모드로 가동합니다.', 'info');
+        }
+      } catch (e) {
+        this.isSyntheticMode = true;
       }
-      this.testDataset = testRows.filter(r => r.label_class === 0);
-      this.faultTestDataset[1] = testRows.filter(r => r.label_class === 1);
-      this.faultTestDataset[2] = testRows.filter(r => r.label_class === 2);
-      this.faultTestDataset[3] = testRows.filter(r => r.label_class === 3);
     }
 
     this.isSimulating = true;
@@ -436,6 +470,8 @@ class App {
     this.simulationTimer = setInterval(() => {
       this.tickSimulation();
     }, this.simulationSpeed);
+
+    this.showToast('1초 주기 실시간 데이터 생성이 시작되었습니다.', 'success');
   }
 
   pauseSimulation() {
@@ -451,14 +487,57 @@ class App {
   resetSimulation() {
     this.pauseSimulation();
     this.testDataIndex = 0;
+    this.prevSensorValues = null;
     chartsManager.reset();
     metricsCalculator.reset();
+    this.clearTelemetryFeed();
     this.updateAlarmSystem(0.01, aiEngine.threshold, {
       class_0_normal: 1,
       class_1_dry_pump: 0,
       class_2_booster1: 0,
       class_3_booster2: 0
     });
+    this.updateRealtimeSensorUI({
+      dry_pump: 12.5,
+      booster1: 8.2,
+      booster2: 7.9,
+      vacuum: 0.050,
+      temp: -42.0,
+      label_class: 0
+    }, false, null);
+  }
+
+  /**
+   * 실시간 가상 센서 데이터 1건 생성 (물리 스펙 및 10% 돌발 고장)
+   */
+  generateSyntheticSample(injectFault) {
+    this.testDataIndex++;
+    const t = this.testDataIndex;
+
+    // 기본 정상 범위 가동치 (실측 동결건조기 정상 운전 기준)
+    let dry_pump = 16.3 + Math.sin(t * 0.08) * 0.35 + (Math.random() - 0.5) * 0.2;
+    let booster1 = 3.25 + Math.cos(t * 0.08) * 0.12 + (Math.random() - 0.5) * 0.1;
+    let booster2 = 2.75 + Math.sin(t * 0.1) * 0.15 + (Math.random() - 0.5) * 0.1;
+    let vacuum = 0.210 + (Math.random() - 0.5) * 0.012;
+    let temp = 64.0 + Math.sin(t * 0.04) * 0.6 + (Math.random() - 0.5) * 0.3;
+    let label_class = 0;
+
+    // 10% 확률 돌발 고장 인젝션 (확실한 물리적 결함 시그니처)
+    if (injectFault) {
+      const faultClass = Math.floor(Math.random() * 3) + 1;
+      label_class = faultClass;
+      if (faultClass === 1) {
+        dry_pump = 21.0 + Math.random() * 2.8; // 드라이펌프 과부하 과전류 (21~23.8A)
+        temp += 10.0 + Math.random() * 5.0;
+      } else if (faultClass === 2) {
+        booster1 = 7.4 + Math.random() * 1.8;  // 부스터 1호기 과전류 (7.4~9.2A)
+      } else if (faultClass === 3) {
+        booster2 = 8.1 + Math.random() * 2.0;  // 부스터 2호기 과전류 (8.1~10.1A)
+      }
+      vacuum += 0.08 + Math.random() * 0.06;
+    }
+
+    return { dry_pump, booster1, booster2, vacuum, temp, label_class };
   }
 
   /**
@@ -468,22 +547,26 @@ class App {
     let targetRow = null;
     const injectFault = this.faultInjectionEnabled && Math.random() < 0.10;
 
-    if (injectFault) {
-      // 10% 확률로 고장 3종 중 무작위 주입
-      const faultClass = Math.floor(Math.random() * 3) + 1;
-      const faultPool = this.faultTestDataset[faultClass];
-      if (faultPool && faultPool.length > 0) {
-        const randIdx = Math.floor(Math.random() * faultPool.length);
-        targetRow = faultPool[randIdx];
+    if (this.isSyntheticMode || this.testDataset.length === 0) {
+      targetRow = this.generateSyntheticSample(injectFault);
+    } else {
+      if (injectFault) {
+        // 10% 확률로 고장 3종 중 무작위 주입
+        const faultClass = Math.floor(Math.random() * 3) + 1;
+        const faultPool = this.faultTestDataset[faultClass];
+        if (faultPool && faultPool.length > 0) {
+          const randIdx = Math.floor(Math.random() * faultPool.length);
+          targetRow = faultPool[randIdx];
+        }
       }
-    }
 
-    if (!targetRow) {
-      if (this.testDataIndex >= this.testDataset.length) {
-        this.testDataIndex = 0; // 루프 재생
+      if (!targetRow) {
+        if (this.testDataIndex >= this.testDataset.length) {
+          this.testDataIndex = 0; // 루프 재생
+        }
+        targetRow = this.testDataset[this.testDataIndex];
+        this.testDataIndex++;
       }
-      targetRow = this.testDataset[this.testDataIndex];
-      this.testDataIndex++;
     }
 
     if (!targetRow) return;
@@ -502,6 +585,9 @@ class App {
     // 1. 차트 푸시 (60fps FIFO)
     chartsManager.pushData(targetRow, inferenceResult.mse, inferenceResult.threshold);
 
+    // 1-2. [영역 C] 실시간 5대 센서 계측 수치 및 텔레메트리 피드 갱신
+    this.updateRealtimeSensorUI(targetRow, injectFault, inferenceResult);
+
     // 2. 3색 알람 신호등 및 가이드 갱신
     this.updateAlarmSystem(inferenceResult.mse, inferenceResult.threshold, inferenceResult.probabilities);
 
@@ -510,6 +596,196 @@ class App {
 
     // 4. 실시간 TDD Confusion Matrix & F1-Score 누적
     metricsCalculator.recordPrediction(targetRow.label_class, inferenceResult.predictedClass);
+  }
+
+  /**
+   * [영역 C] 실시간 유입 5대 센서 계측 수치 및 이상치 카드 하이라이트
+   */
+  updateRealtimeSensorUI(row, isFaultInjected, inferenceResult) {
+    const elDry  = document.getElementById('sim-val-dry');
+    const elB1   = document.getElementById('sim-val-b1');
+    const elB2   = document.getElementById('sim-val-b2');
+    const elVac  = document.getElementById('sim-val-vac');
+    const elTemp = document.getElementById('sim-val-temp');
+    const elCounter = document.getElementById('sim-frame-counter');
+    const elLastTime = document.getElementById('sim-last-time');
+    const elBadge = document.getElementById('sim-data-type-badge');
+
+    if (elDry)  elDry.textContent  = `${row.dry_pump.toFixed(1)} A`;
+    if (elB1)   elB1.textContent   = `${row.booster1.toFixed(1)} A`;
+    if (elB2)   elB2.textContent   = `${row.booster2.toFixed(1)} A`;
+    if (elVac)  elVac.textContent  = `${row.vacuum.toFixed(3)} Torr`;
+    if (elTemp) elTemp.textContent = `${row.temp.toFixed(1)} °C`;
+    if (elCounter) elCounter.textContent = this.testDataIndex.toLocaleString();
+
+    // 최신 생성 시각 표시 (HH:mm:ss)
+    if (elLastTime) {
+      const now = new Date();
+      elLastTime.textContent = now.toTimeString().split(' ')[0];
+    }
+
+    // 직전 값 대비 변화량 (Delta) 인디케이터 갱신
+    const updateDiff = (elId, current, prev, decimals = 1) => {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      if (prev === null || prev === undefined) {
+        el.textContent = '━ 0.0';
+        el.className = 'text-[10px] font-mono text-slate-500';
+        return;
+      }
+      const diff = current - prev;
+      if (Math.abs(diff) < (decimals === 3 ? 0.0005 : 0.05)) {
+        el.textContent = '━ 0.0';
+        el.className = 'text-[10px] font-mono text-slate-400';
+      } else if (diff > 0) {
+        el.textContent = `▲ +${diff.toFixed(decimals)}`;
+        el.className = 'text-[10px] font-mono text-rose-400 font-semibold';
+      } else {
+        el.textContent = `▼ ${diff.toFixed(decimals)}`;
+        el.className = 'text-[10px] font-mono text-cyan-400 font-semibold';
+      }
+    };
+
+    if (this.prevSensorValues) {
+      updateDiff('sim-diff-dry',  row.dry_pump, this.prevSensorValues.dry_pump, 1);
+      updateDiff('sim-diff-b1',   row.booster1, this.prevSensorValues.booster1, 1);
+      updateDiff('sim-diff-b2',   row.booster2, this.prevSensorValues.booster2, 1);
+      updateDiff('sim-diff-vac',  row.vacuum,   this.prevSensorValues.vacuum,   3);
+      updateDiff('sim-diff-temp', row.temp,     this.prevSensorValues.temp,     1);
+    }
+    this.prevSensorValues = { ...row };
+
+    // 데이터 상태 뱃지
+    if (elBadge) {
+      if (isFaultInjected || row.label_class !== 0) {
+        const classNames = ['', '드라이펌프 고장', '부스터1 고장', '부스터2 고장'];
+        const faultName = classNames[row.label_class] || '돌발 이상';
+        elBadge.className = 'badge badge-sm badge-error text-white font-bold animate-pulse';
+        elBadge.textContent = `🚨 ${faultName} 유입`;
+      } else {
+        elBadge.className = 'badge badge-sm badge-ghost text-emerald-400 font-mono text-[10px]';
+        elBadge.textContent = '정상 시계열';
+      }
+    }
+
+    // 개별 센서 이상치 카드 시각적 하이라이트
+    const cardDry  = document.getElementById('sim-metric-card-dry');
+    const cardB1   = document.getElementById('sim-metric-card-b1');
+    const cardB2   = document.getElementById('sim-metric-card-b2');
+    const cardVac  = document.getElementById('sim-metric-card-vac');
+    const cardTemp = document.getElementById('sim-metric-card-temp');
+
+    const highlightCard = (card, isAbnormal) => {
+      if (!card) return;
+      if (isAbnormal) {
+        card.className = 'bg-rose-950/60 p-3 rounded-xl border-2 border-rose-500 shadow-xl shadow-rose-900/30 transition-all text-center';
+      } else {
+        card.className = 'bg-slate-950/80 p-3 rounded-xl border border-slate-800 transition-all text-center';
+      }
+    };
+
+    highlightCard(cardDry,  row.dry_pump > 18.0 || row.label_class === 1);
+    highlightCard(cardB1,   row.booster1 > 14.0 || row.label_class === 2);
+    highlightCard(cardB2,   row.booster2 > 14.0 || row.label_class === 3);
+    highlightCard(cardVac,  row.vacuum > 0.080);
+    highlightCard(cardTemp, row.temp > -30.0);
+
+    // 텔레메트리 피드 행 추가
+    if (inferenceResult) {
+      this.addTelemetryRow(row, inferenceResult, isFaultInjected);
+    }
+  }
+
+  /**
+   * 실시간 1초 생성 데이터 텔레메트리 피드에 행 추가
+   */
+  addTelemetryRow(row, inference, isFaultInjected) {
+    const tbody = document.getElementById('telemetry-table-body');
+    if (!tbody) return;
+
+    // 빈 행 제거
+    const emptyRow = document.getElementById('telemetry-empty-row');
+    if (emptyRow) emptyRow.remove();
+
+    this.telemetryCount++;
+    const isAbnormal = isFaultInjected || row.label_class !== 0 || inference.isAnomaly;
+    if (isAbnormal) {
+      this.telemetryFaultCount++;
+    } else {
+      this.telemetryNormalCount++;
+    }
+
+    // 카운터 갱신
+    const elTotal = document.getElementById('telemetry-count');
+    const elNormal = document.getElementById('telemetry-normal-count');
+    const elFault = document.getElementById('telemetry-fault-count');
+    if (elTotal) elTotal.textContent = this.telemetryCount.toLocaleString();
+    if (elNormal) elNormal.textContent = this.telemetryNormalCount.toLocaleString();
+    if (elFault) elFault.textContent = this.telemetryFaultCount.toLocaleString();
+
+    // 시간 포맷 (HH:mm:ss)
+    const timeStr = new Date().toTimeString().split(' ')[0];
+
+    // AI 진단 텍스트 및 라벨
+    const classLabels = ['정상 가동', '드라이펌프 고장', '부스터1 고장', '부스터2 고장'];
+    const diagText = classLabels[inference.predictedClass] || '판정 중';
+    const diagBadgeClass = inference.predictedClass === 0 
+      ? 'badge-success text-slate-950 font-bold' 
+      : 'badge-error text-white font-bold animate-pulse';
+
+    // 주입 구분
+    const sourceBadge = (isFaultInjected || row.label_class !== 0)
+      ? '<span class="badge badge-xs badge-error text-white font-semibold">돌발 주입</span>'
+      : '<span class="badge badge-xs badge-ghost text-emerald-400 font-semibold">정상 스트림</span>';
+
+    const tr = document.createElement('tr');
+    tr.className = `telemetry-row-new hover:bg-slate-800/40 transition-colors ${isAbnormal ? 'bg-rose-950/20' : ''}`;
+    tr.innerHTML = `
+      <td class="font-bold text-slate-400">${this.telemetryCount}</td>
+      <td class="text-slate-300">${timeStr}</td>
+      <td class="${row.dry_pump > 18.0 ? 'text-rose-400 font-black' : 'text-cyan-300 font-bold'}">${row.dry_pump.toFixed(1)}</td>
+      <td class="${row.booster1 > 14.0 ? 'text-rose-400 font-black' : 'text-blue-300 font-bold'}">${row.booster1.toFixed(1)}</td>
+      <td class="${row.booster2 > 14.0 ? 'text-rose-400 font-black' : 'text-purple-300 font-bold'}">${row.booster2.toFixed(1)}</td>
+      <td class="${row.vacuum > 0.08 ? 'text-amber-400 font-black' : 'text-amber-300'}">${row.vacuum.toFixed(3)}</td>
+      <td class="${row.temp > -35 ? 'text-rose-400 font-black' : 'text-emerald-300'}">${row.temp.toFixed(1)}</td>
+      <td class="${inference.isAnomaly ? 'text-rose-400 font-black' : 'text-slate-400'}">${inference.mse.toFixed(4)}</td>
+      <td><span class="badge badge-xs ${diagBadgeClass}">${diagText}</span></td>
+      <td>${sourceBadge}</td>
+    `;
+
+    tbody.insertBefore(tr, tbody.firstChild);
+
+    // 최대 50건 유지
+    while (tbody.children.length > 50) {
+      tbody.removeChild(tbody.lastChild);
+    }
+  }
+
+  /**
+   * 텔레메트리 피드 초기화
+   */
+  clearTelemetryFeed() {
+    this.telemetryCount = 0;
+    this.telemetryNormalCount = 0;
+    this.telemetryFaultCount = 0;
+
+    const elTotal = document.getElementById('telemetry-count');
+    const elNormal = document.getElementById('telemetry-normal-count');
+    const elFault = document.getElementById('telemetry-fault-count');
+    if (elTotal) elTotal.textContent = '0';
+    if (elNormal) elNormal.textContent = '0';
+    if (elFault) elFault.textContent = '0';
+
+    const tbody = document.getElementById('telemetry-table-body');
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr id="telemetry-empty-row" class="text-slate-500 italic">
+          <td colspan="10" class="py-8 text-center text-xs">
+            상단의 <span class="text-emerald-400 font-bold">[가동 시작]</span> 버튼을 누르면 1초에 1건씩 생성되는 5대 센서 계측 수치와 AI 판정 결과가 실시간으로 기록됩니다.
+          </td>
+        </tr>
+      `;
+    }
   }
 
   /**

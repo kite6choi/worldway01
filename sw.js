@@ -1,6 +1,6 @@
 // sw.js — 월드웨이 예지보전 AI PWA Service Worker
 // 캐시 버전을 날짜 기반으로 관리: 코드 변경 시 자동으로 구 캐시 폐기
-const CACHE_VERSION = '20260902-v4';
+const CACHE_VERSION = '20260902-v6';
 const CACHE_SHELL   = `worldway-shell-${CACHE_VERSION}`;
 const CACHE_CDN     = `worldway-cdn-${CACHE_VERSION}`;
 

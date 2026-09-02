@@ -261,7 +261,7 @@
 
           <!-- Playback Actions -->
           <div class="flex items-center gap-2">
-            <button id="sim-start-btn" disabled class="btn btn-sm btn-success gap-1 font-bold shadow-md">
+            <button id="sim-start-btn" class="btn btn-sm btn-success gap-1 font-bold shadow-md shadow-emerald-500/20" title="1초 주기 실시간 데이터 스트림 가동 시작">
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
               </svg>
@@ -280,33 +280,154 @@
         </div>
       </div>
 
+      <!-- 실시간 1초 유입 5대 센서 계측 수치 모니터링 현황판 -->
+      <div class="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 shadow-md space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span class="text-xs font-bold text-slate-200">실시간 유입 5대 센서 계측 수치 (1초 갱신)</span>
+            <span id="sim-data-type-badge" class="badge badge-sm badge-ghost text-emerald-400 font-mono text-[10px]">
+              정상 시계열
+            </span>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-mono text-slate-400">
+            <span>최신 갱신: <b id="sim-last-time" class="text-cyan-300 font-bold">대기 중</b></span>
+            <span>스트림 프레임: <b id="sim-frame-counter" class="text-cyan-400 font-bold">0</b> / 50,000</span>
+          </div>
+        </div>
+
+        <!-- 5대 센서 실시간 수치 카드 5종 -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <!-- 1. 드라이펌프 전류 -->
+          <div id="sim-metric-card-dry" class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 transition-all text-center">
+            <div class="flex items-center justify-between text-[11px] text-slate-400 font-semibold mb-1">
+              <span>드라이펌프 전류</span>
+              <span id="sim-diff-dry" class="text-[10px] font-mono text-slate-500">━ 0.0</span>
+            </div>
+            <div id="sim-val-dry" class="text-base md:text-lg font-black font-mono text-cyan-400">16.3 A</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">정상: 15.5 ~ 17.5 A</div>
+          </div>
+
+          <!-- 2. 부스터 1호기 전류 -->
+          <div id="sim-metric-card-b1" class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 transition-all text-center">
+            <div class="flex items-center justify-between text-[11px] text-slate-400 font-semibold mb-1">
+              <span>부스터 1호기 전류</span>
+              <span id="sim-diff-b1" class="text-[10px] font-mono text-slate-500">━ 0.0</span>
+            </div>
+            <div id="sim-val-b1" class="text-base md:text-lg font-black font-mono text-blue-400">3.2 A</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">정상: 3.0 ~ 3.6 A</div>
+          </div>
+
+          <!-- 3. 부스터 2호기 전류 -->
+          <div id="sim-metric-card-b2" class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 transition-all text-center">
+            <div class="flex items-center justify-between text-[11px] text-slate-400 font-semibold mb-1">
+              <span>부스터 2호기 전류</span>
+              <span id="sim-diff-b2" class="text-[10px] font-mono text-slate-500">━ 0.0</span>
+            </div>
+            <div id="sim-val-b2" class="text-base md:text-lg font-black font-mono text-purple-400">2.7 A</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">정상: 2.5 ~ 4.0 A</div>
+          </div>
+
+          <!-- 4. 진공도 -->
+          <div id="sim-metric-card-vac" class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 transition-all text-center">
+            <div class="flex items-center justify-between text-[11px] text-slate-400 font-semibold mb-1">
+              <span>챔버 진공도</span>
+              <span id="sim-diff-vac" class="text-[10px] font-mono text-slate-500">━ 0.000</span>
+            </div>
+            <div id="sim-val-vac" class="text-base md:text-lg font-black font-mono text-amber-400">0.210 Torr</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">정상: 0.1 ~ 0.5 Torr</div>
+          </div>
+
+          <!-- 5. 열매in 온도 -->
+          <div id="sim-metric-card-temp" class="bg-slate-950/80 p-3 rounded-xl border border-slate-800 transition-all text-center">
+            <div class="flex items-center justify-between text-[11px] text-slate-400 font-semibold mb-1">
+              <span>열매in 온도</span>
+              <span id="sim-diff-temp" class="text-[10px] font-mono text-slate-500">━ 0.0</span>
+            </div>
+            <div id="sim-val-temp" class="text-base md:text-lg font-black font-mono text-emerald-400">64.0 °C</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">운전: 15 ~ 85 °C</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4.1 실시간 1초 생성 데이터 텔레메트리 피드 (Live Telemetry Stream Feed) - 전면 배치 -->
+      <div class="bg-slate-900/95 rounded-2xl p-4 border border-cyan-500/30 shadow-xl shadow-cyan-950/20 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+          <div class="flex items-center gap-2.5">
+            <span class="relative flex h-3 w-3">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+            </span>
+            <span class="text-sm font-black text-cyan-400">4.1 실시간 1초 생성 데이터 텔레메트리 피드 (Live Generated Stream)</span>
+            <span class="badge badge-sm badge-info font-mono text-[10px] font-bold">1초/건 실시간 생성</span>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-mono">
+            <span class="text-slate-300">누적: <b id="telemetry-count" class="text-cyan-400 font-bold text-sm">0</b>건</span>
+            <span class="text-slate-300">정상: <b id="telemetry-normal-count" class="text-emerald-400 font-bold text-sm">0</b></span>
+            <span class="text-slate-300">이상: <b id="telemetry-fault-count" class="text-rose-400 font-bold text-sm">0</b></span>
+            <button id="telemetry-clear-btn" class="btn btn-ghost btn-xs text-slate-400 hover:text-slate-100 border border-slate-700/60" title="테이블 기록 비우기">
+              초기화
+            </button>
+          </div>
+        </div>
+
+        <!-- 텔레메트리 테이블 (고정 헤더 + 스크롤) -->
+        <div class="overflow-x-auto max-h-64 rounded-xl border border-slate-800/80 bg-slate-950/80">
+          <table class="table table-xs w-full font-mono text-center">
+            <thead class="bg-slate-900 text-slate-200 sticky top-0 z-10 text-[11px] border-b border-slate-700">
+              <tr>
+                <th class="py-2.5">#</th>
+                <th>생성 시각</th>
+                <th class="text-cyan-400 font-bold">드라이펌프 (A)</th>
+                <th class="text-blue-400 font-bold">부스터 1호기 (A)</th>
+                <th class="text-purple-400 font-bold">부스터 2호기 (A)</th>
+                <th class="text-amber-400 font-bold">진공도 (Torr)</th>
+                <th class="text-emerald-400 font-bold">열매in 온도 (°C)</th>
+                <th class="text-rose-400 font-bold">복원 오차 (MSE)</th>
+                <th>AI 진단 상태</th>
+                <th>데이터 구분</th>
+              </tr>
+            </thead>
+            <tbody id="telemetry-table-body" class="divide-y divide-slate-800/60 text-[11px]">
+              <tr id="telemetry-empty-row" class="text-slate-400 italic">
+                <td colspan="10" class="py-8 text-center text-xs">
+                  상단의 <span class="text-emerald-400 font-bold">[가동 시작]</span> 버튼을 누르면 1초에 1건씩 생성되는 5대 센서 계측 수치와 AI 판정 결과가 실시간으로 기록됩니다.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Live Charts Grid: Sensor Trend & Error Monitor -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <!-- Live Chart 1: Sensor Trend -->
         <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800/80 space-y-2">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-cyan-400">4.1 센서 트렌드 실시간 시계열 그래프 (uPlot 60fps)</span>
-            <span class="text-[10px] text-slate-400">5대 센서 멀티라인</span>
+            <span class="text-xs font-bold text-cyan-400">4.2 센서 트렌드 실시간 시계열 그래프 (uPlot 60fps)</span>
+            <span class="text-[10px] text-slate-400">5대 센서 멀티라인 (100-Point FIFO)</span>
           </div>
-          <div id="sensor-chart-box" class="w-full h-[220px] overflow-hidden flex items-center justify-center bg-slate-950/60 rounded-xl"></div>
+          <!-- 하단 범례가 완벽히 표시되도록 min-h-[320px] 및 flex-col 적용 -->
+          <div id="sensor-chart-box" class="w-full min-h-[320px] p-2 pb-3 flex flex-col items-center justify-start bg-slate-950/60 rounded-xl overflow-x-auto"></div>
         </div>
 
         <!-- Live Chart 2: Autoencoder Error & Threshold -->
         <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800/80 space-y-2">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-rose-400">4.2 실시간 AE 복원 MSE 오차 모니터링 (uPlot)</span>
+            <span class="text-xs font-bold text-rose-400">4.3 실시간 AE 복원 MSE 오차 모니터링 (uPlot)</span>
             <span class="text-[10px] text-amber-400">임계치 침범 시 즉시 2단계 기동</span>
           </div>
-          <div id="error-chart-box" class="w-full h-[220px] overflow-hidden flex items-center justify-center bg-slate-950/60 rounded-xl"></div>
+          <!-- 하단 범례가 완벽히 표시되도록 min-h-[320px] 및 flex-col 적용 -->
+          <div id="error-chart-box" class="w-full min-h-[320px] p-2 pb-3 flex flex-col items-center justify-start bg-slate-950/60 rounded-xl overflow-x-auto"></div>
         </div>
       </div>
 
       <!-- Lower Section C: Realtime Probabilities & 3-Color Smart Alarm Siren -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        <!-- 4.3 Realtime Probabilities Bar (col-span-6) -->
+        <!-- 4.4 Realtime Probabilities Bar (col-span-6) -->
         <div class="lg:col-span-6 bg-slate-900/80 rounded-2xl p-4 border border-slate-800 space-y-3 flex flex-col justify-between">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-slate-300">4.3 실시간 고장 원인별 진단 예측 확률 분포 (%)</span>
+            <span class="text-xs font-bold text-slate-300">4.4 실시간 고장 원인별 진단 예측 확률 분포 (%)</span>
             <span class="text-[10px] text-slate-500">Softmax & 앙상블 4-Class</span>
           </div>
 
@@ -476,32 +597,35 @@
   <!-- Toast Container -->
   <div id="toast-container" class="toast toast-bottom toast-end z-50"></div>
 
-  <!-- Scripts -->
-  <script src="tdd_analyzer_test.js"></script>
-  <script src="data-store.js"></script>
-  <script src="ai-engine.js"></script>
-  <script src="charts-manager.js"></script>
-  <script src="metrics-calculator.js"></script>
-  <script src="app.js"></script>
-  <!-- PWA Service Worker 등록 -->
+  <!-- Scripts (Cache-Busting 적용) -->
+  <script src="tdd_analyzer_test.js?v=20260902_v6"></script>
+  <script src="data-store.js?v=20260902_v6"></script>
+  <script src="ai-engine.js?v=20260902_v6"></script>
+  <script src="charts-manager.js?v=20260902_v6"></script>
+  <script src="metrics-calculator.js?v=20260902_v6"></script>
+  <script src="app.js?v=20260902_v6"></script>
+  <!-- PWA Service Worker 관리: 로컬 개발 환경에서는 구버전 캐시 방지를 위해 등록 해제 및 캐시 클리어 -->
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then((reg) => {
-            console.log('[PWA] Service Worker 등록 완료:', reg.scope);
-            // 새 버전 감지 시 자동 업데이트
-            reg.addEventListener('updatefound', () => {
-              const newWorker = reg.installing;
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  console.log('[PWA] 새 버전이 준비되었습니다. 새로고침하면 적용됩니다.');
-                }
-              });
-            });
-          })
-          .catch((err) => console.warn('[PWA] Service Worker 등록 실패:', err));
-      });
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          for (let reg of regs) {
+            reg.unregister().then(() => console.log('[PWA] 로컬 개발용 Service Worker 등록 해제 완료'));
+          }
+        });
+        if ('caches' in window) {
+          caches.keys().then((names) => {
+            for (let name of names) {
+              caches.delete(name).then(() => console.log('[PWA] 구 캐시 스토리지 삭제 완료:', name));
+            }
+          });
+        }
+      } else {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js?v=20260902_v7')
+            .catch((err) => console.warn('[PWA] Service Worker 등록 실패:', err));
+        });
+      }
     }
   </script>
 </body>

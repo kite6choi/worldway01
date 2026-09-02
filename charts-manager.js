@@ -31,33 +31,38 @@ class ChartsManager {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    const width = container.clientWidth || 500;
-    const height = 220;
+    const width = Math.max(280, (container.clientWidth || 500) - 16);
+    const height = 210;
 
     const opts = {
       width: width,
       height: height,
-      title: "실시간 5대 센서 트렌드 (100-Point FIFO)",
+      legend: {
+        show: true
+      },
       scales: {
         x: { time: false },
         y: { auto: true }
       },
       axes: [
         {
-          stroke: "#64748b",
-          grid: { stroke: "rgba(255,255,255,0.05)" },
-          ticks: { stroke: "#64748b" }
+          stroke: "#94a3b8",
+          font: "11px monospace",
+          grid: { stroke: "rgba(255,255,255,0.06)" },
+          ticks: { stroke: "#94a3b8" },
+          values: (self, ticks) => ticks.map(v => v + "s")
         },
         {
-          stroke: "#64748b",
-          grid: { stroke: "rgba(255,255,255,0.05)" },
-          ticks: { stroke: "#64748b" }
+          stroke: "#94a3b8",
+          font: "11px monospace",
+          grid: { stroke: "rgba(255,255,255,0.06)" },
+          ticks: { stroke: "#94a3b8" }
         }
       ],
       series: [
         {},
         {
-          label: "드라이펌프(A)",
+          label: "드라이(A)",
           stroke: "#06b6d4",
           width: 2,
           points: { show: false }
@@ -98,27 +103,31 @@ class ChartsManager {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    const width = container.clientWidth || 500;
-    const height = 220;
+    const width = Math.max(280, (container.clientWidth || 500) - 16);
+    const height = 210;
 
     const opts = {
       width: width,
       height: height,
-      title: "오토인코더 복원 MSE 오차 & 이상 임계치 (T_h)",
+      legend: {
+        show: true
+      },
       scales: {
         x: { time: false },
         y: { auto: true, range: [0, 0.25] }
       },
       axes: [
         {
-          stroke: "#64748b",
-          grid: { stroke: "rgba(255,255,255,0.05)" },
-          ticks: { stroke: "#64748b" }
+          stroke: "#94a3b8",
+          font: "11px monospace",
+          grid: { stroke: "rgba(255,255,255,0.06)" },
+          ticks: { stroke: "#94a3b8" },
+          values: (self, ticks) => ticks.map(v => v + "s")
         },
         {
-          stroke: "#64748b",
-          grid: { stroke: "rgba(255,255,255,0.05)" },
-          ticks: { stroke: "#64748b" }
+          stroke: "#94a3b8",
+          font: "11px monospace",
+          grid: { stroke: "rgba(255,255,255,0.06)" },
         }
       ],
       series: [
@@ -191,10 +200,10 @@ class ChartsManager {
     const sc = document.getElementById('sensor-chart-box');
     const ec = document.getElementById('error-chart-box');
     if (sc && this.sensorChart) {
-      this.sensorChart.setSize({ width: sc.clientWidth, height: 220 });
+      this.sensorChart.setSize({ width: Math.max(280, sc.clientWidth - 16), height: 210 });
     }
     if (ec && this.errorChart) {
-      this.errorChart.setSize({ width: ec.clientWidth, height: 220 });
+      this.errorChart.setSize({ width: Math.max(280, ec.clientWidth - 16), height: 210 });
     }
   }
 }

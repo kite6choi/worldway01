@@ -105,20 +105,76 @@ body {
   }
 }
 
-/* uPlot Dark Theme Overrides */
+/* uPlot Dark Theme Overrides & Legend Visibility */
 .uplot {
   font-family: 'JetBrains Mono', monospace !important;
   user-select: none;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+}
+
+.u-wrap {
+  position: relative !important;
 }
 
 .u-legend {
   font-size: 11px !important;
-  color: #94a3b8 !important;
-  padding: 4px 0 !important;
+  color: #cbd5e1 !important;
+  padding: 6px 12px !important;
+  margin-top: 10px !important;
+  margin-bottom: 6px !important;
+  background: rgba(15, 23, 42, 0.85) !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 6px 14px !important;
+  width: auto !important;
+  max-width: 95% !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.u-legend .u-series {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 3px 6px !important;
+  border-radius: 6px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  white-space: nowrap !important;
 }
 
 .u-legend .u-series th, .u-legend .u-series td {
-  padding: 2px 6px !important;
+  padding: 1px 4px !important;
+  font-size: 11px !important;
+  vertical-align: middle !important;
+}
+
+.u-legend .u-marker {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 2px !important;
+  margin-right: 6px !important;
+  display: inline-block !important;
+}
+
+/* 실시간 생성 텔레메트리 행 펄스 애니메이션 */
+@keyframes flash-new-row {
+  0% {
+    background-color: rgba(6, 182, 212, 0.28);
+    transform: scale(1.005);
+  }
+  100% {
+    background-color: transparent;
+    transform: scale(1);
+  }
+}
+
+.telemetry-row-new {
+  animation: flash-new-row 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Custom Scrollbar */
