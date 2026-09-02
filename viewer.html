@@ -192,6 +192,47 @@
           <span>진행 프레임: <b id="stream-frame-count" class="font-mono text-cyan-400">0</b></span>
         </div>
 
+        <!-- 1초 주기 실시간 유입 5대 센서 수치 계측판 -->
+        <div class="bg-slate-950/80 rounded-xl p-3 border border-slate-800/80 space-y-2 shadow-inner">
+          <div class="flex items-center justify-between text-[11px] font-bold text-slate-300">
+            <span class="flex items-center gap-1.5">
+              <span id="stream-pulse-dot" class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+              실시간 유입 센서 계측치 (1초 갱신)
+            </span>
+            <span id="stream-data-badge" class="badge badge-xs badge-ghost text-[10px] text-emerald-400 font-mono">
+              정상 데이터
+            </span>
+          </div>
+
+          <!-- 센서 3종 (전류) -->
+          <div class="grid grid-cols-3 gap-1.5 text-center">
+            <div id="metric-box-dry" class="bg-slate-900/90 p-2 rounded-lg border border-slate-800 transition-all">
+              <div class="text-[10px] text-slate-400 font-medium">드라이펌프</div>
+              <div id="stream-num-dry" class="text-xs font-black font-mono text-cyan-400">12.5 A</div>
+            </div>
+            <div id="metric-box-b1" class="bg-slate-900/90 p-2 rounded-lg border border-slate-800 transition-all">
+              <div class="text-[10px] text-slate-400 font-medium">부스터1 펌프</div>
+              <div id="stream-num-b1" class="text-xs font-black font-mono text-blue-400">8.2 A</div>
+            </div>
+            <div id="metric-box-b2" class="bg-slate-900/90 p-2 rounded-lg border border-slate-800 transition-all">
+              <div class="text-[10px] text-slate-400 font-medium">부스터2 펌프</div>
+              <div id="stream-num-b2" class="text-xs font-black font-mono text-purple-400">7.9 A</div>
+            </div>
+          </div>
+
+          <!-- 센서 2종 (진공/온도) -->
+          <div class="grid grid-cols-2 gap-1.5 text-center">
+            <div id="metric-box-vac" class="bg-slate-900/90 p-2 rounded-lg border border-slate-800 transition-all">
+              <div class="text-[10px] text-slate-400 font-medium">챔버 진공도</div>
+              <div id="stream-num-vac" class="text-xs font-black font-mono text-amber-400">0.050 Torr</div>
+            </div>
+            <div id="metric-box-temp" class="bg-slate-900/90 p-2 rounded-lg border border-slate-800 transition-all">
+              <div class="text-[10px] text-slate-400 font-medium">열매in 온도</div>
+              <div id="stream-num-temp" class="text-xs font-black font-mono text-emerald-400">-42.0 °C</div>
+            </div>
+          </div>
+        </div>
+
         <!-- 고장 인젝션 스위치 -->
         <div class="flex items-center justify-between bg-slate-950/60 px-3 py-2 rounded-xl border border-slate-800/60">
           <span class="text-xs font-semibold text-rose-300">돌발 고장 자동 인젝션 (10%)</span>

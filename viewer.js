@@ -435,6 +435,47 @@ class MobileViewer {
     if (t2) t2.textContent = `${p2}%`;
     if (t3) t3.textContent = `${p3}%`;
 
+    // 2-2. 1초 주기 실시간 유입 5대 센서 수치 및 카드 하이라이트 갱신
+    const numDry = document.getElementById('stream-num-dry');
+    const numB1  = document.getElementById('stream-num-b1');
+    const numB2  = document.getElementById('stream-num-b2');
+    const numVac = document.getElementById('stream-num-vac');
+    const numTemp= document.getElementById('stream-num-temp');
+
+    const sDry  = this.currentSensor[0];
+    const sB1   = this.currentSensor[1];
+    const sB2   = this.currentSensor[2];
+    const sVac  = this.currentSensor[3];
+    const sTemp = this.currentSensor[4];
+
+    if (numDry)  numDry.textContent  = `${sDry.toFixed(1)} A`;
+    if (numB1)   numB1.textContent   = `${sB1.toFixed(1)} A`;
+    if (numB2)   numB2.textContent   = `${sB2.toFixed(1)} A`;
+    if (numVac)  numVac.textContent  = `${sVac.toFixed(3)} Torr`;
+    if (numTemp) numTemp.textContent = `${sTemp.toFixed(1)} °C`;
+
+    // 개별 센서 이상 수치 시각적 하이라이트
+    const boxDry  = document.getElementById('metric-box-dry');
+    const boxB1   = document.getElementById('metric-box-b1');
+    const boxB2   = document.getElementById('metric-box-b2');
+    const boxVac  = document.getElementById('metric-box-vac');
+    const boxTemp = document.getElementById('metric-box-temp');
+
+    const setHighlight = (box, isFault) => {
+      if (!box) return;
+      if (isFault) {
+        box.className = 'bg-rose-950/60 p-2 rounded-lg border-2 border-rose-500 shadow-lg shadow-rose-900/30 transition-all';
+      } else {
+        box.className = 'bg-slate-900/90 p-2 rounded-lg border border-slate-800 transition-all';
+      }
+    };
+
+    setHighlight(boxDry,  sDry > 18.0);
+    setHighlight(boxB1,   sB1 > 14.0);
+    setHighlight(boxB2,   sB2 > 14.0);
+    setHighlight(boxVac,  sVac > 0.080);
+    setHighlight(boxTemp, sTemp > -30.0);
+
     // 3. 3색 스마트 사이렌 & 가이드 카드
     const card = document.getElementById('alarm-card');
     const badge = document.getElementById('alarm-status-badge');
@@ -556,6 +597,17 @@ class MobileViewer {
       const nVac = 0.050 + (Math.random() - 0.5) * 0.006;
       const nTemp = -42.0 + (Math.random() - 0.5) * 1.2;
       this.setSliders([nDry, nB1, nB2, nVac, nTemp]);
+    }
+
+    const dataBadge = document.getElementById('stream-data-badge');
+    if (dataBadge) {
+      if (injectFault) {
+        dataBadge.className = 'badge badge-xs badge-error text-white font-bold animate-pulse';
+        dataBadge.textContent = '⚠️ 돌발 고장 유입';
+      } else {
+        dataBadge.className = 'badge badge-xs badge-ghost text-[10px] text-emerald-400 font-mono';
+        dataBadge.textContent = '정상 데이터';
+      }
     }
 
     this.updateUIWithInference();
