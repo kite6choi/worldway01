@@ -613,6 +613,11 @@ class AIEngine {
       `LR: ${currentLr}, patience: ${patience}`
     );
 
+    let lastValAcc = 0;
+    let lastValLoss = 0;
+    let lastEpoch = 0;
+    let isEarlyStopped = false;
+
     for (let epoch = 1; epoch <= epochs; epoch++) {
       const history = await this.classifier.fit(xTrainTensor, yTrainTensor, {
         epochs: 1,
@@ -626,6 +631,10 @@ class AIEngine {
       const trainAcc = history.history.acc?.[0] ?? history.history.accuracy[0];
       const valAcc   = history.history.val_acc?.[0] ?? history.history.val_accuracy[0];
       const valLoss  = history.history.val_loss[0];
+
+      lastValAcc  = valAcc;
+      lastValLoss = valLoss;
+      lastEpoch   = epoch;
 
       // 에포크 기반 진행률: 65% ~ 98% 구간
       const epochPct = Math.round(65 + (epoch / epochs) * 33);
@@ -661,6 +670,7 @@ class AIEngine {
         }
 
         if (patienceCount >= patience) {
+          isEarlyStopped = true;
           console.log(`[Classifier] Early Stopping at Epoch ${epoch} — Best Val Loss: ${bestValLoss.toFixed(4)}`);
           if (callbacks.onEarlyStop) callbacks.onEarlyStop(epoch, bestValLoss);
           break;
@@ -674,9 +684,18 @@ class AIEngine {
     xValTensor.dispose();
     yValTensor.dispose();
 
-    progressCb('2단계 분류기 학습 완료 ✅', 100);
+    const summaryMsg = `✅ 2단계 분류기 학습 완료 (Epoch ${lastEpoch}/${epochs}${isEarlyStopped ? ' 조기종료' : ''}) | Val Acc: ${(lastValAcc * 100).toFixed(2)}% | Best Loss: ${bestValLoss.toFixed(4)}`;
+    progressCb(summaryMsg, 100);
     this.isClassifierTrained = true;
-    return { success: true, bestValLoss };
+    return {
+      success: true,
+      bestValLoss,
+      lastValAcc,
+      lastValLoss,
+      finalEpoch: lastEpoch,
+      totalEpochs: epochs,
+      isEarlyStopped
+    };
   }
 
   /**

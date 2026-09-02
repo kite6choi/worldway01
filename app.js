@@ -307,6 +307,20 @@ class App {
       const thDisplay = document.getElementById('threshold-value-display');
       if (thDisplay) thDisplay.innerText = result.threshold.toFixed(5);
 
+      const aeLogText = document.getElementById('ae-epoch-log');
+      if (aeLogText && result) {
+        aeLogText.innerHTML = `
+          <div class="flex items-center justify-between text-slate-200">
+            <span class="text-emerald-400 font-bold">✅ 1단계 오토인코더 학습 완료</span>
+            <span class="text-[10px] text-slate-400 font-mono">최적 Val Loss: ${result.bestValLoss.toFixed(5)}</span>
+          </div>
+          <div class="flex items-center justify-between pt-1 text-[11px] font-mono border-t border-slate-800/80 mt-1">
+            <span>산출 임계치(T_h): <b class="text-amber-400 font-bold">${result.threshold.toFixed(5)}</b></span>
+            <span class="text-[10px] text-slate-400">정상 99% 백분위수 락</span>
+          </div>
+        `;
+      }
+
       btn.innerText = '✅ 오토인코더 학습 완료';
       btn.classList.remove('btn-primary');
       btn.classList.add('btn-success');
@@ -341,7 +355,7 @@ class App {
       const trainAll = await dataStore.loadTrainData(false);
       const valAll = await dataStore.loadValData(false);
 
-      await aiEngine.trainClassifier(trainAll, valAll, {
+      const result = await aiEngine.trainClassifier(trainAll, valAll, {
         onProgress: (msg) => {
           const logText = document.getElementById('cls-epoch-log');
           if (logText) logText.innerText = msg;
@@ -359,6 +373,22 @@ class App {
           }
         }
       });
+
+      // 학습 완료 시점의 최종 수치 명확히 고정 표시
+      const logText = document.getElementById('cls-epoch-log');
+      if (logText && result) {
+        const stoppedNotice = result.isEarlyStopped ? ` (조기 종료: Epoch ${result.finalEpoch})` : '';
+        logText.innerHTML = `
+          <div class="flex items-center justify-between text-slate-200">
+            <span class="text-emerald-400 font-bold">✅ 2단계 분류기 학습 완료${stoppedNotice}</span>
+            <span class="text-[10px] text-slate-400 font-mono">최종 Epoch ${result.finalEpoch}/${result.totalEpochs}</span>
+          </div>
+          <div class="flex items-center justify-between pt-1 text-[11px] font-mono border-t border-slate-800/80 mt-1">
+            <span>검증 정확도(Val Acc): <b class="text-cyan-300 font-bold">${(result.lastValAcc * 100).toFixed(2)}%</b></span>
+            <span>최적 손실(Best Loss): <b class="text-amber-300 font-bold">${result.bestValLoss.toFixed(4)}</b></span>
+          </div>
+        `;
+      }
 
       btn.innerText = '✅ 2단계 분류기 학습 완료';
       btn.classList.remove('btn-secondary');
