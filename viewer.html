@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>월드웨이 동결건조기 모바일 예지보전 뷰어</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="월드웨이 뷰어">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="./icons/icon-192.svg">
+  <link rel="apple-touch-icon" href="./icons/icon-192.svg">
+
+  <!-- Tailwind CSS & DaisyUI CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.7.2/dist/full.min.css" rel="stylesheet" type="text/css" />
+
+  <!-- TensorFlow.js CDN (경량 추론용) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+
+  <!-- Google Fonts: Inter & Pretendard fallback -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./viewer.css">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen pb-16 antialiased font-sans select-none">
+
+  <!-- Mobile Top Header Bar -->
+  <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between shadow-lg">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-black text-white shadow-md shadow-cyan-500/20 text-sm">
+        WW
+      </div>
+      <div>
+        <h1 class="text-sm font-black tracking-tight text-slate-100 flex items-center gap-1.5">
+          월드웨이 예지보전 뷰어
+          <span class="badge badge-xs badge-accent font-mono text-[9px]">MOBILE</span>
+        </h1>
+        <p class="text-[10px] text-slate-400">진공 동결건조기 챔버1 현장 관제</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- PC 대시보드 복귀 링크 -->
+      <a href="./index.html" class="btn btn-xs btn-ghost text-slate-400 gap-1 border border-slate-700/60" title="PC 전체 대시보드로 이동">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        <span class="hidden sm:inline text-[11px]">PC 대시보드</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto px-3 pt-3 space-y-3.5">
+
+    <!-- 1. 모델 탑재 상태 카드 -->
+    <div id="model-status-card" class="rounded-2xl bg-slate-900/90 border border-slate-800 p-3.5 shadow-md space-y-2.5">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+          </svg>
+          AI 추론 엔진 상태
+        </span>
+        <span id="model-badge" class="badge badge-sm badge-ghost text-slate-400 border-slate-700 font-bold text-[10px]">
+          대기 (미탑재)
+        </span>
+      </div>
+
+      <!-- 모델 로드 옵션 버튼들 -->
+      <div class="grid grid-cols-2 gap-2 pt-0.5">
+        <!-- 원클릭 내장 기본 모델 로드 -->
+        <button id="load-builtin-model-btn" class="btn btn-sm btn-primary gap-1 font-bold text-xs shadow-md">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          기본 모델 즉시 로드
+        </button>
+
+        <!-- PC 내보내기 파일 업로드 -->
+        <label for="model-files-input" class="btn btn-sm btn-outline btn-info gap-1 font-bold text-xs cursor-pointer">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+          </svg>
+          내보낸 모델 파일
+        </label>
+        <input type="file" id="model-files-input" multiple accept=".json,.bin" class="hidden" />
+      </div>
+
+      <div id="model-info-text" class="text-[11px] text-slate-400 leading-tight">
+        * PC에서 내보낸 <code>worldway-*.json/bin</code> 파일을 올리거나 [기본 모델 즉시 로드]를 누르세요.
+      </div>
+    </div>
+
+    <!-- 2. 동적 3색 스마트 사이렌 & 현장 정비 가이드 -->
+    <div id="alarm-card" class="rounded-2xl p-4 shadow-xl border transition-all duration-300 alarm-green">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[11px] font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+          <span id="alarm-ping" class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+          설비 진단 상태
+        </span>
+        <span id="alarm-status-badge" class="badge badge-sm badge-success text-slate-950 font-black text-[10px]">
+          NORMAL
+        </span>
+      </div>
+
+      <h2 id="alarm-title" class="text-base font-black text-white mb-1.5">
+        ✅ 정상 안정 운전
+      </h2>
+
+      <p id="alarm-guide" class="text-xs leading-relaxed text-slate-200 opacity-95">
+        동결건조 챔버1 압력 및 펌프 계통이 정상 가동 중입니다.
+      </p>
+
+      <div class="mt-3 pt-2.5 border-t border-slate-700/40 flex items-center justify-between text-[11px] text-slate-300">
+        <span>복원 오차(MSE): <b id="current-mse" class="font-mono text-white">0.00000</b></span>
+        <span>이상 임계치(T_h): <b id="current-th" class="font-mono text-amber-300">0.04500</b></span>
+      </div>
+    </div>
+
+    <!-- 3. 실시간 고장 원인별 진단 확률 분포 (4-Class Softmax) -->
+    <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-3.5 shadow-md space-y-2.5">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          실시간 고장 원인별 진단 확률
+        </span>
+        <span class="text-[10px] text-slate-500 font-mono">Softmax 4-Class</span>
+      </div>
+
+      <div class="space-y-2">
+        <!-- Class 0: 정상 -->
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-emerald-400 font-semibold">정상 운전 (Normal)</span>
+            <span id="prob-val-0" class="font-mono font-bold text-emerald-400">100%</span>
+          </div>
+          <progress id="prob-bar-0" class="progress progress-success w-full h-2 bg-slate-800" value="100" max="100"></progress>
+        </div>
+
+        <!-- Class 1: 건식펌프 -->
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-cyan-400 font-semibold">드라이펌프 고장 (Dry Pump)</span>
+            <span id="prob-val-1" class="font-mono font-bold text-cyan-400">0%</span>
+          </div>
+          <progress id="prob-bar-1" class="progress progress-info w-full h-2 bg-slate-800" value="0" max="100"></progress>
+        </div>
+
+        <!-- Class 2: 부스터1 -->
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-blue-400 font-semibold">부스터1 펌프 고장 (Booster 1)</span>
+            <span id="prob-val-2" class="font-mono font-bold text-blue-400">0%</span>
+          </div>
+          <progress id="prob-bar-2" class="progress progress-primary w-full h-2 bg-slate-800" value="0" max="100"></progress>
+        </div>
+
+        <!-- Class 3: 부스터2 -->
+        <div>
+          <div class="flex justify-between text-[11px] mb-0.5">
+            <span class="text-purple-400 font-semibold">부스터2 펌프 고장 (Booster 2)</span>
+            <span id="prob-val-3" class="font-mono font-bold text-purple-400">0%</span>
+          </div>
+          <progress id="prob-bar-3" class="progress progress-secondary w-full h-2 bg-slate-800" value="0" max="100"></progress>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 센서 제어 & 모니터링 탭 (스트림 vs 수동 슬라이더) -->
+    <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-3.5 shadow-md space-y-3">
+      <!-- 탭 헤더 -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <span class="text-xs font-bold text-slate-300">센서 데이터 입력 제어</span>
+        <div class="tabs tabs-boxed bg-slate-950 p-0.5">
+          <button id="tab-stream-btn" class="tab tab-xs tab-active text-[11px] font-bold">⚡ 모의 스트림</button>
+          <button id="tab-manual-btn" class="tab tab-xs text-[11px] font-bold">🎛️ 수동 조작</button>
+        </div>
+      </div>
+
+      <!-- 모드 1: 실시간 모의 스트림 패널 -->
+      <div id="panel-stream" class="space-y-3">
+        <div class="flex items-center justify-between text-[11px] text-slate-400 bg-slate-950/60 px-3 py-2 rounded-xl border border-slate-800/60">
+          <span>모의 상태: <b id="stream-status" class="text-slate-300">대기 중</b></span>
+          <span>진행 프레임: <b id="stream-frame-count" class="font-mono text-cyan-400">0</b></span>
+        </div>
+
+        <!-- 고장 인젝션 스위치 -->
+        <div class="flex items-center justify-between bg-slate-950/60 px-3 py-2 rounded-xl border border-slate-800/60">
+          <span class="text-xs font-semibold text-rose-300">돌발 고장 자동 인젝션 (10%)</span>
+          <input type="checkbox" id="stream-fault-toggle" checked class="toggle toggle-error toggle-sm" />
+        </div>
+
+        <!-- 스트림 컨트롤 버튼들 -->
+        <div class="grid grid-cols-3 gap-2">
+          <button id="stream-start-btn" class="btn btn-sm btn-success gap-1 font-bold text-xs shadow-md">
+            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+            </svg>
+            시작
+          </button>
+          <button id="stream-pause-btn" disabled class="btn btn-sm btn-warning gap-1 font-bold text-xs">
+            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            일시정지
+          </button>
+          <button id="stream-reset-btn" class="btn btn-sm btn-ghost text-slate-400 font-bold text-xs border border-slate-800">
+            초기화
+          </button>
+        </div>
+      </div>
+
+      <!-- 모드 2: 수동 센서 슬라이더 패널 -->
+      <div id="panel-manual" class="space-y-3 hidden">
+        <!-- 원클릭 프리셋 버튼들 -->
+        <div class="flex flex-wrap gap-1.5 pb-1">
+          <button class="preset-btn btn btn-xs btn-outline btn-success" data-preset="normal">안정 정상</button>
+          <button class="preset-btn btn btn-xs btn-outline btn-info" data-preset="dry">드라이 고장</button>
+          <button class="preset-btn btn btn-xs btn-outline btn-primary" data-preset="b1">부스터1 고장</button>
+          <button class="preset-btn btn btn-xs btn-outline btn-secondary" data-preset="b2">부스터2 고장</button>
+        </div>
+
+        <!-- 센서 5개 슬라이더 -->
+        <div class="space-y-2.5 text-xs">
+          <!-- 1. 드라이펌프 전류 -->
+          <div>
+            <div class="flex justify-between text-[11px] mb-1">
+              <span class="text-slate-300">드라이펌프 전류 (A)</span>
+              <span id="val-dry" class="font-mono font-bold text-cyan-400">12.5 A</span>
+            </div>
+            <input type="range" id="slider-dry" min="0" max="40" step="0.1" value="12.5" class="range range-xs range-info" />
+          </div>
+
+          <!-- 2. 부스터1 전류 -->
+          <div>
+            <div class="flex justify-between text-[11px] mb-1">
+              <span class="text-slate-300">부스터1 전류 (A)</span>
+              <span id="val-b1" class="font-mono font-bold text-blue-400">8.2 A</span>
+            </div>
+            <input type="range" id="slider-b1" min="0" max="30" step="0.1" value="8.2" class="range range-xs range-primary" />
+          </div>
+
+          <!-- 3. 부스터2 전류 -->
+          <div>
+            <div class="flex justify-between text-[11px] mb-1">
+              <span class="text-slate-300">부스터2 전류 (A)</span>
+              <span id="val-b2" class="font-mono font-bold text-purple-400">7.9 A</span>
+            </div>
+            <input type="range" id="slider-b2" min="0" max="30" step="0.1" value="7.9" class="range range-xs range-secondary" />
+          </div>
+
+          <!-- 4. 진공도 -->
+          <div>
+            <div class="flex justify-between text-[11px] mb-1">
+              <span class="text-slate-300">챔버 진공도 (Torr)</span>
+              <span id="val-vac" class="font-mono font-bold text-amber-400">0.050 Torr</span>
+            </div>
+            <input type="range" id="slider-vac" min="0.001" max="1.0" step="0.005" value="0.050" class="range range-xs range-warning" />
+          </div>
+
+          <!-- 5. 열매in온도 -->
+          <div>
+            <div class="flex justify-between text-[11px] mb-1">
+              <span class="text-slate-300">열매in 온도 (°C)</span>
+              <span id="val-temp" class="font-mono font-bold text-emerald-400">-42.0 °C</span>
+            </div>
+            <input type="range" id="slider-temp" min="-60" max="50" step="0.5" value="-42.0" class="range range-xs range-success" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 하단 크레딧 -->
+    <div class="text-center text-[10px] text-slate-500 pt-2 pb-6">
+      월드웨이(Worldway) × 엔씨씨(NCC) 하이브리드 AI 예지보전 시스템<br>
+      © 2026 Worldway Freeze Drying Predictive AI
+    </div>
+  </main>
+
+  <!-- Toast Container -->
+  <div id="toast-box" class="toast toast-top toast-center z-50"></div>
+
+  <!-- Viewer Script -->
+  <script src="./viewer.js"></script>
+</body>
+</html>

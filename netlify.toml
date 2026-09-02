@@ -1,7 +1,14 @@
 [build]
   publish = "."
 
+# 정적 파일 우선 서빙 후 SPA 리디렉트
+[[redirects]]
+  from = "/viewer"
+  to = "/viewer.html"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+

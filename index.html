@@ -54,6 +54,22 @@
       </div>
 
       <div class="flex items-center flex-wrap gap-3">
+        <!-- 모델 내보내기 버튼 (모바일 뷰어용) -->
+        <button id="export-model-btn" class="btn btn-sm btn-outline btn-warning gap-2" disabled title="학습 완료 후 활성화">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          📦 모델 내보내기 (뷰어용)
+        </button>
+
+        <!-- 모바일 뷰어 링크 -->
+        <a href="./viewer.html" target="_blank" class="btn btn-sm btn-outline btn-accent gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+          📱 모바일 뷰어 열기
+        </a>
+
         <!-- TDD 자가 진단 버튼 -->
         <button id="run-tdd-btn" class="btn btn-sm btn-outline btn-info gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

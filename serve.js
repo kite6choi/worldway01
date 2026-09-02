@@ -11,7 +11,8 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.csv': 'text/csv; charset=utf-8',
-  '.svg': 'image/svg+xml'
+  '.svg': 'image/svg+xml',
+  '.bin': 'application/octet-stream'
 };
 
 const server = http.createServer((req, res) => {

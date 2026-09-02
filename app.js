@@ -102,6 +102,12 @@ class App {
       trainClsBtn.addEventListener('click', () => this.startClassifierTraining());
     }
 
+    // 모델 내보내기 버튼
+    const exportModelBtn = document.getElementById('export-model-btn');
+    if (exportModelBtn) {
+      exportModelBtn.addEventListener('click', () => this.exportTrainedModel());
+    }
+
     // 3. 시뮬레이션 제어 바
     const startSimBtn = document.getElementById('sim-start-btn');
     const pauseSimBtn = document.getElementById('sim-pause-btn');
@@ -306,6 +312,11 @@ class App {
       btn.classList.add('btn-success');
 
       document.getElementById('train-cls-btn').disabled = false;
+      const exportBtn = document.getElementById('export-model-btn');
+      if (exportBtn) {
+        exportBtn.disabled = false;
+        exportBtn.title = '학습된 모델 내보내기';
+      }
       this.showToast(`오토인코더 학습 완료! 이상 임계치: ${result.threshold.toFixed(5)}`, 'success');
     } catch (e) {
       console.error(e);
@@ -353,8 +364,13 @@ class App {
       btn.classList.remove('btn-secondary');
       btn.classList.add('btn-success');
 
-      // 시뮬레이션 버튼 활성화
+      // 시뮬레이션 및 내보내기 버튼 활성화
       document.getElementById('sim-start-btn').disabled = false;
+      const exportBtn = document.getElementById('export-model-btn');
+      if (exportBtn) {
+        exportBtn.disabled = false;
+        exportBtn.title = '학습된 모델(오토인코더+분류기) 내보내기';
+      }
       this.showToast('2단계 10차원 융합 고장 진단기 학습이 완료되었습니다!', 'success');
     } catch (e) {
       console.error(e);
@@ -551,6 +567,75 @@ class App {
     if (t1) t1.innerText = `${p1}%`;
     if (t2) t2.innerText = `${p2}%`;
     if (t3) t3.innerText = `${p3}%`;
+  }
+
+  /**
+   * 학습된 모델 전체 내보내기 (모바일 뷰어용)
+   * - autoencoder.json + autoencoder.weights.bin
+   * - classifier.json  + classifier.weights.bin
+   * - worldway-params.json (스케일러 파라미터 + 임계치)
+   */
+  async exportTrainedModel() {
+    const engine = window.aiEngine;
+    if (!engine.isAutoencoderTrained) {
+      this.showToast('먼저 오토인코더를 학습해야 합니다.', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('export-model-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '내보내는 중...'; }
+
+    try {
+      // ① 오토인코더 모델 파일 다운로드 (JSON + weights.bin)
+      this.showToast('오토인코더 모델 저장 중...', 'info');
+      await engine.autoencoder.save('downloads://worldway-autoencoder');
+      await new Promise(r => setTimeout(r, 800));
+
+      // ② 분류기 모델 파일 다운로드 (학습된 경우)
+      if (engine.isClassifierTrained) {
+        this.showToast('분류기 모델 저장 중...', 'info');
+        await engine.classifier.save('downloads://worldway-classifier');
+        await new Promise(r => setTimeout(r, 800));
+      }
+
+      // ③ 스케일러 파라미터 + 임계치 JSON 다운로드
+      const params = {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        threshold: engine.threshold,
+        scaler5D: {
+          type: 'MinMaxScaler',
+          min: Array.from(engine.scaler5D.min),
+          max: Array.from(engine.scaler5D.max)
+        },
+        scaler10D: {
+          type: 'StandardScaler',
+          mean: Array.from(engine.scaler10D.mean),
+          std:  Array.from(engine.scaler10D.std)
+        },
+        hasClassifier: engine.isClassifierTrained,
+        featureNames: ['dry_pump', 'booster1', 'booster2', 'vacuum', 'temp'],
+        classNames:   ['정상', '건식펌프 고장', '부스터1 고장', '부스터2 고장']
+      };
+      const blob = new Blob([JSON.stringify(params, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'worldway-params.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+
+      this.showToast(
+        `✅ 모델 내보내기 완료! (총 ${engine.isClassifierTrained ? 5 : 3}개 파일) — viewer.html에서 불러오세요.`,
+        'success'
+      );
+    } catch (err) {
+      console.error('[Export] 모델 내보내기 실패:', err);
+      this.showToast('모델 내보내기 실패: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📦 모델 내보내기 (뷰어용)'; }
+    }
   }
 
   showToast(message, type = 'info') {
